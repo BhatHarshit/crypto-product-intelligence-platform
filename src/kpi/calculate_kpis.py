@@ -1,126 +1,73 @@
 import pandas as pd
 import numpy as np
-import datetime
-import matplotlib.pyplot as plt
 
-# =========================
-# Load Cleaned Data
-# =========================
-data_path = 'data/crypto_data_clean.csv'
-df = pd.read_csv(data_path)
+def calculate_kpis(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Calculate key performance indicators for cryptocurrency assets.
+    
+    Computes exactly 4 KPIs:
+    1. Momentum - Percentage price change over available window
+    2. Liquidity Proxy - Rolling average of price × volume
+    3. Volume Trend - Percentage change in volume
+    4. Downside Risk - Standard deviation of negative returns only
+    """
 
-# Ensure correct types
-df['Price'] = df['Price'].astype(float)
-df['1H %'] = df['1H %'].astype(float)
-df['24H %'] = df['24H %'].astype(float)
-df['7D %'] = df['7D %'].astype(float)
-df['Volume(24H)'] = df['Volume(24H)'].astype(float)
-df['MarketCap'] = df['MarketCap'].astype(float)
-df['CirculatingSupply'] = df['CirculatingSupply'].astype(float)
-
-# =========================
-# TASK 1: Average Downfall KPI with Price Slicer
-# =========================
-price_bins = [0, 0.05, 0.5, 5, 50, np.inf]
-price_labels = ['0-0.05', '0.05-0.5', '0.5-5', '5-50', '>50']
-df['PriceRange'] = pd.cut(df['Price'], bins=price_bins, labels=price_labels)
-
-# Average Downfall (1H, 24H, 7D)
-df['AvgDownfall'] = (df['1H %'] + df['24H %'] + df['7D %']) / 3
-
-# Example: select price range '0.5-5'
-selected_range = '0.5-5'
-df_task1 = df[df['PriceRange'] == selected_range].copy()
-least_avg_downfall = df_task1.loc[df_task1['AvgDownfall'].idxmin()]
-
-kpi_task1 = {
-    'CoinName': least_avg_downfall['CoinName'],
-    'Symbol': least_avg_downfall['Symbol'],
-    'Price': least_avg_downfall['Price'],
-    'AvgDownfall': least_avg_downfall['AvgDownfall'],
-    'TotalCoins': len(df_task1)
-}
-print("=== TASK 1 KPI ===")
-print(kpi_task1)
-
-# =========================
-# TASK 2: Top 10 coins 0-5 USD with 24H vs 7D price change
-# =========================
-df_task2 = df[(df['Price'] <= 5)]
-df_task2['Price_24H_Ago'] = df_task2['Price'] / (1 + df_task2['24H %']/100)
-df_task2['Price_7D_Ago'] = df_task2['Price'] / (1 + df_task2['7D %']/100)
-df_top10_1H = df_task2.nlargest(10, '1H %')
-
-# Chart: 24H vs 7D price
-plt.figure(figsize=(10,5))
-plt.plot(df_top10_1H['CoinName'], df_top10_1H['Price_24H_Ago'], label='Price 24H Ago', marker='o')
-plt.plot(df_top10_1H['CoinName'], df_top10_1H['Price_7D_Ago'], label='Price 7D Ago', marker='o')
-plt.xticks(rotation=45)
-plt.ylabel('Price $')
-plt.title('Top 10 Coins 0-5 USD: Price 24H vs 7D')
-plt.legend()
-plt.tight_layout()
-plt.savefig('data/task2_price_chart.png')
-plt.close()
-
-# =========================
-# TASK 3: Top 10 coins by 1H increase, slicer ranges <=10 and >10 USD
-# =========================
-df_task3 = df.copy()
-range_condition = df_task3['Price'] <= 10
-df_task3_top10 = df_task3[range_condition].nlargest(10, '1H %')
-df_task3_top10.to_csv('data/task3_top10_price_change.csv', index=False)
-
-# =========================
-# TASK 4: Top 10 Volume coins (time-based display)
-# =========================
-current_hour = datetime.datetime.now().hour
-if 9 <= current_hour < 17:
-    df_task4_top10 = df.nlargest(10, 'Volume(24H)')
-    df_task4_top10.to_csv('data/task4_top10_volume.csv', index=False)
-else:
-    print("[Please open in working hours (9AM to 5PM)]")
-
-# =========================
-# TASK 5: Compare Two Coins
-# =========================
-def compare_coins(coin1, coin2):
-    # Input validation
-    for coin in [coin1, coin2]:
-        if len(coin) < 3 or len(coin) > 10 or any(char.isdigit() for char in coin):
-            raise ValueError("Coin names must be 3-10 characters, no numbers")
-    df1 = df[df['CoinName'] == coin1].iloc[0]
-    df2 = df[df['CoinName'] == coin2].iloc[0]
-    diff = {
-        'VolumeDiff': df1['Volume(24H)'] - df2['Volume(24H)'],
-        'MarketCapDiff': df1['MarketCap'] - df2['MarketCap'],
-        'CirculatingSupplyDiff': df1['CirculatingSupply'] - df2['CirculatingSupply']
-    }
-    return diff
-
-# Example
-try:
-    comparison_kpi = compare_coins(df['CoinName'].iloc[0], df['CoinName'].iloc[1])
-    print("=== TASK 5 Comparison KPI ===")
-    print(comparison_kpi)
-except Exception as e:
-    print(e)
-
-# =========================
-# TASK 6: Liquidity Pie Chart Top 5 vs Others
-# =========================
-price_slicer_condition = df['Price'] <= 50
-df_sliced = df[price_slicer_condition].copy()
-top5 = df_sliced.nlargest(5, 'Volume(24H)')
-others_sum = df_sliced['Volume(24H)'].sum() - top5['Volume(24H)'].sum()
-
-labels = list(top5['CoinName']) + ['Others']
-sizes = list(top5['Volume(24H)']) + [others_sum]
-
-plt.figure(figsize=(7,7))
-plt.pie(sizes, labels=labels, autopct='%1.1f%%', startangle=140)
-plt.title('Liquidity Distribution (Top 5 vs Others)')
-plt.savefig('data/task6_liquidity_pie.png')
-plt.close()
-
-print("KPI calculations complete. CSVs and charts saved in data/")
+    required_cols = ['asset', 'price', 'volume']
+    missing_cols = [col for col in required_cols if col not in df.columns]
+    if missing_cols:
+        raise ValueError(f"Missing required columns for KPI calculation: {missing_cols}")
+    
+    kpi_results = []
+    
+    for asset, group in df.groupby('asset'):
+        if 'timestamp' in group.columns:
+            group = group.sort_values('timestamp')
+        
+        kpi_dict = {'asset': asset}
+        
+        # 1. MOMENTUM
+        if len(group) >= 2:
+            first_price = group['price'].iloc[0]
+            last_price = group['price'].iloc[-1]
+            momentum = ((last_price - first_price) / first_price) * 100 if first_price > 0 else np.nan
+        else:
+            momentum = np.nan
+        kpi_dict['momentum'] = momentum
+        
+        # 2. LIQUIDITY PROXY
+        liquidity_values = group['price'] * group['volume']
+        if len(liquidity_values) > 0:
+            window_size = min(3, len(liquidity_values))
+            rolling_liquidity = liquidity_values.rolling(window=window_size, min_periods=1).mean()
+            liquidity_proxy = rolling_liquidity.mean()
+        else:
+            liquidity_proxy = np.nan
+        kpi_dict['liquidity_proxy'] = liquidity_proxy
+        
+        # 3. VOLUME TREND
+        if len(group) >= 2:
+            first_volume = group['volume'].iloc[0]
+            last_volume = group['volume'].iloc[-1]
+            volume_trend = ((last_volume - first_volume) / first_volume) * 100 if first_volume > 0 else np.nan
+        else:
+            volume_trend = np.nan
+        kpi_dict['volume_trend'] = volume_trend
+        
+        # 4. DOWNSIDE RISK
+        if len(group) >= 2:
+            returns = group['price'].pct_change()
+            negative_returns = returns[returns < 0]
+            downside_risk = negative_returns.std() * 100 if len(negative_returns) > 0 else 0.0
+        else:
+            downside_risk = np.nan
+        kpi_dict['downside_risk'] = downside_risk
+        
+        kpi_results.append(kpi_dict)
+    
+    kpi_df = pd.DataFrame(kpi_results)
+    kpi_df = kpi_df[['asset', 'momentum', 'liquidity_proxy', 'volume_trend', 'downside_risk']]
+    
+    numeric_cols = ['momentum', 'liquidity_proxy', 'volume_trend', 'downside_risk']
+    kpi_df[numeric_cols] = kpi_df[numeric_cols].round(4)
+    
+    return kpi_df
