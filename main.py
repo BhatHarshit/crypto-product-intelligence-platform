@@ -68,6 +68,28 @@ def main():
     print("-" * 60)
     print()
 
+    # Step 3.5: Liquidity concentration analysis
+    print("Step 3.5: Analyzing liquidity concentration...")
+    try:
+        from src.analytics.liquidity_concentration import calculate_liquidity_concentration
+        liquidity_df = calculate_liquidity_concentration(df_clean)
+
+        print(f"✓ Liquidity concentration calculated for {len(liquidity_df)} assets")
+        print()
+        print("Liquidity Concentration Summary:")
+        print(liquidity_df.head(10).to_string(index=False))
+
+        # Merge with KPI dataframe
+        kpi_df = kpi_df.merge(liquidity_df, on="asset", how="left")
+
+    except Exception as e:
+        print(f"✗ Error during liquidity concentration analysis: {e}")
+        return
+
+    print()
+    print("-" * 60)
+    print()
+
     # Step 4: Compare assets
     print("Step 4: Comparing assets...")
     try:
