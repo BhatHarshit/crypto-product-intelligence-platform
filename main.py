@@ -3,9 +3,10 @@ Main entry point for crypto analytics platform.
 
 This script demonstrates the end-to-end workflow:
 1. Load data from CSV
-2. Clean the data
+2. Validate / prepare data
 3. Calculate KPIs
-4. Compare assets
+4. Liquidity concentration analysis
+5. Compare assets
 """
 
 import pandas as pd
@@ -29,7 +30,6 @@ def main():
         print(f"  Columns: {', '.join(df_raw.columns)}")
     except FileNotFoundError:
         print(f"✗ Error: Data file not found at {data_path}")
-        print("  Please ensure crypto_data.csv exists in the data/ directory")
         return
     except Exception as e:
         print(f"✗ Error loading data: {e}")
@@ -37,16 +37,33 @@ def main():
 
     print()
 
-    # Step 2: Clean data
-    print("Step 2: Cleaning data...")
+    # Step 2: Prepare / Clean data (schema-aware)
+    print("Step 2: Preparing data...")
+
     try:
-        from src.etl.clean_data import clean_crypto_data
-        df_clean = clean_crypto_data(df_raw)
-        print(f"✓ Data cleaned successfully")
-        print(f"  {len(df_clean)} rows after cleaning ({len(df_raw) - len(df_clean)} rows removed)")
-        print(f"  Unique assets: {df_clean['asset'].nunique() if 'asset' in df_clean.columns else 'N/A'}")
+        # CASE 1: Product-grade dataset (snapshot-based)
+        if "snapshot_time" in df_raw.columns:
+            df_clean = df_raw.copy()
+
+            # Create timestamp column for KPI compatibility
+            df_clean["timestamp"] = pd.to_datetime(df_clean["snapshot_time"], errors="coerce")
+
+            print("✓ Detected enriched snapshot dataset")
+            print("✓ Skipped raw cleaning step")
+            print(f"  Rows: {len(df_clean)}")
+            print(f"  Unique assets: {df_clean['asset'].nunique()}")
+
+        # CASE 2: Raw ingestion dataset
+        else:
+            from src.etl.clean_data import clean_crypto_data
+            df_clean = clean_crypto_data(df_raw)
+
+            print("✓ Raw data cleaned successfully")
+            print(f"  Rows after cleaning: {len(df_clean)}")
+            print(f"  Unique assets: {df_clean['asset'].nunique()}")
+
     except Exception as e:
-        print(f"✗ Error during data cleaning: {e}")
+        print(f"✗ Error during data preparation: {e}")
         return
 
     print()
@@ -58,8 +75,8 @@ def main():
         kpi_df = calculate_kpis(df_clean)
         print(f"✓ KPIs calculated for {len(kpi_df)} assets")
         print()
-        print("KPI Summary:")
-        print(kpi_df.to_string(index=False))
+        print("KPI Summary (sample):")
+        print(kpi_df.head(10).to_string(index=False))
     except Exception as e:
         print(f"✗ Error during KPI calculation: {e}")
         return
@@ -76,7 +93,7 @@ def main():
 
         print(f"✓ Liquidity concentration calculated for {len(liquidity_df)} assets")
         print()
-        print("Liquidity Concentration Summary:")
+        print("Liquidity Concentration Summary (Top 10):")
         print(liquidity_df.head(10).to_string(index=False))
 
         # Merge with KPI dataframe
@@ -94,13 +111,15 @@ def main():
     print("Step 4: Comparing assets...")
     try:
         from src.comparison.compare_coins import compare_assets
-        available_assets = kpi_df['asset'].tolist()
-        assets_to_compare = available_assets[:min(5, len(available_assets))]
+        available_assets = kpi_df["asset"].tolist()
+        assets_to_compare = available_assets[:5]
+
         comparison_df = compare_assets(kpi_df, assets=assets_to_compare)
-        print(f"✓ Asset comparison complete")
+        print("✓ Asset comparison complete")
         print()
         print("Asset Comparison:")
         print(comparison_df.to_string(index=False))
+
     except Exception as e:
         print(f"✗ Error during asset comparison: {e}")
         return
