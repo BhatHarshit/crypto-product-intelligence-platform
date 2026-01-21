@@ -12,6 +12,7 @@ This script demonstrates the end-to-end workflow:
 import pandas as pd
 from pathlib import Path
 
+
 def main():
     """Run the complete crypto analytics pipeline."""
 
@@ -108,17 +109,17 @@ def main():
     print()
 
     # Step 4: Compare assets
-    print("Step 4: Comparing assets...")
+    print("Step 4: Comparing assets (Ranked Top 10)...")
     try:
         from src.comparison.compare_coins import compare_assets
-        available_assets = kpi_df["asset"].tolist()
-        assets_to_compare = available_assets[:5]
 
-        comparison_df = compare_assets(kpi_df, assets=assets_to_compare)
+        # Use all assets to rank, optionally you can limit by top 10 later
+        comparison_df = compare_assets(kpi_df, assets=None)
+
         print("✓ Asset comparison complete")
         print()
-        print("Asset Comparison:")
-        print(comparison_df.to_string(index=False))
+        print("Ranked Asset Comparison (Top 10):")
+        print(comparison_df.head(10).to_string(index=False))
 
     except Exception as e:
         print(f"✗ Error during asset comparison: {e}")
