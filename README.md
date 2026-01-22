@@ -1,4 +1,4 @@
-# crypto-product-intelligence-platform
+# crypto-product-intelligence-platform(2026)
 End-to-end fintech analytics platform for crypto investment insights with KPIs, dashboards, and governance.
 # Crypto Product Intelligence & Quality Analytics Platform (2026)
 
